@@ -1,0 +1,56 @@
+version: "3.8"
+
+services:
+  sqldb:
+    image: postgres:latest
+    restart: on-failure:5
+    environment:
+      - POSTGRES_USER=guest
+      - POSTGRES_PASSWORD=guest
+      - POSTGRES_DB=postgres
+    volumes:
+      - ./server/cmd/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - sqldb-data:/var/lib/postgresql/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 5432:5432
+    networks:
+      - election-network
+
+  ltc-backend:
+    depends_on:
+      - sqldb
+    build: ./server
+    restart: on-failure:5
+    environment:
+      - DATABASE_HOST=sqldb
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 8000:8000
+    networks:
+      - election-network
+
+  ltc-frontend:
+    depends_on:
+      - ltc-backend
+    build: ./client
+    restart: on-failure:5
+    environment:
+      - VITE__SERVICE_BASE_URL=http://ltc-backend:8000
+      - VITE__BROKER_BASE_URL=ws://ltc-backend:8000/ws
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 3000:80
+    networks:
+      - election-network
+
+volumes:
+  sqldb-data:
+
+networks:
+  election-network:
